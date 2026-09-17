@@ -54,10 +54,12 @@ const altPath = switchLocalePath(here, locale === 'zh' ? 'en' : 'zh', base);
     <script is:inline>
       (function () {
         try {
+          // 默认明亮：这门课讲的是排版与层级，而纸面（浅底深字）是这套
+          // 理论的原生语境 —— 音阶、行长、网格的判据都来自印刷。
+          // 暗色是完整支持的，但它是「选择」，不是「默认」：
+          // 读者按主题开关选过一次之后，localStorage 里的那一份永远优先。
           var saved = localStorage.getItem('lc-theme');
-          var theme =
-            saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-          document.documentElement.dataset.theme = theme;
+          document.documentElement.dataset.theme = saved || 'light';
         } catch (e) {
           document.documentElement.dataset.theme = 'light';
         }
