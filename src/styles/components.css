@@ -295,6 +295,10 @@
   border-block-start: 3px solid var(--ch, var(--accent));
 }
 .lesson-header__inner {
+  /* 与 .lesson-main、.pager 共用同一个宽度。
+     三者任意一个不同步，页头标题与下方正文的左边界就会错开 ——
+     而这条左边界是整页最长的一条对齐轨（§4.3）。 */
+  --max: var(--max-read);
   position: relative;
   z-index: var(--z-content);
   display: flex;
@@ -340,7 +344,18 @@
 }
 
 /* ═══ 章节主体：侧栏目录 + 内容 ════════════════════════════════════════ */
+/* 章节页比门户窄。
+   门户要展示看板、对比器、生成画布，需要 1440px；章节页的主体是**正文**，
+   而正文被行长约束在 42rem 上（§1.3：中文 25–40 汉字）。
+   两者不该共用一个宽度：用 1440px 装 42rem 的正文，段落右侧会空出约 360px，
+   而且那片空白落在**卡片内部** —— 卡片有边框，内部的空白读起来是「洞」，
+   不是「留白」。
+
+   收窄到 72rem 之后，同一片空白移到了卡片之外，变成页面左右的对称边距 ——
+   位置变了，性质就变了。这正是 §2.1「共同区域」的反向应用：
+   边界决定了一块空白属于谁。 */
 .lesson-main {
+  --max: var(--max-read);
   display: grid;
   grid-template-columns: 236px minmax(0, 1fr);
   gap: var(--space-6);
@@ -893,6 +908,9 @@
 
 /* ═══ 翻页器 ═══════════════════════════════════════════════════════════ */
 .pager {
+  /* 第三个共用 --max-read 的容器。页头、正文、翻页器是同一页的三段，
+     左边界必须在一条线上。 */
+  --max: var(--max-read);
   display: grid;
   gap: var(--space-3);
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
