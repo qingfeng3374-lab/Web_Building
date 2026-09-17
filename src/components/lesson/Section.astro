@@ -91,7 +91,10 @@ const labels = {
     border-block-start: var(--hairline) solid var(--line-1);
     font-size: var(--step--2);
     color: var(--ink-3);
-    max-inline-size: none;
+    /* 不再写 `max-inline-size: none`。
+       文献块顶上有一条分隔线，一旦它比正文宽，那条线就会单独伸出去 ——
+       在一屏结尾处，伸出去的横线比任何别的错位都显眼。
+       现在跟着 .prose > * 一起守同一条右边界。 */
   }
   .theory-refs__label {
     display: inline-block;
