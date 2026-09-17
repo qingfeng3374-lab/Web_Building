@@ -1,0 +1,114 @@
+/* =============================================================================
+ * layout.css — 布局原语（Layout Primitives）
+ *
+ * 课程第 3、4 章讲什么，站点自己就用什么。
+ * 每个原语都是「一条规则解决一类问题」，全部无媒体查询（4.4 节）。
+ * ========================================================================== */
+
+/* ── Stack：垂直流，用相邻兄弟选择器统一节奏（2.4 节） ──────────────────
+   档位按需添加（所以序号不连续）：只保留站内真的用到的那几级，
+   免得下一个人对着一个没人用的 .stack-7 猜「是不是故意留的」。
+   为什么不是给每个子元素加 margin-bottom？因为那样最后一个元素会多出
+   一段外边距，破坏容器的下边界。`> * + *` 只在「元素之间」生效。      */
+.stack > * + * { margin-block-start: var(--flow, var(--space-4)); }
+.stack-3 > * + * { margin-block-start: var(--space-3); }
+.stack-5 > * + * { margin-block-start: var(--space-5); }
+.stack-6 > * + * { margin-block-start: var(--space-6); }
+
+/* ── Cluster：行内成组，自动换行，无孤儿（3.3 节：一维 → Flex） ───────── */
+.cluster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-3));
+  align-items: var(--cluster-align, center);
+  justify-content: var(--cluster-justify, flex-start);
+}
+
+/* ── Sidebar：侧栏 + 主区，在容器过窄时自动堆叠（4.4 节） ───────────────
+   原理：主区 flex-basis:0 + flex-grow:999 抢占所有剩余空间；
+   一旦主区宽度低于 --min（50%），flex-wrap 触发换行 → 自动堆叠。
+   全程没有一个媒体查询。                                            */
+.sidebar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-6));
+}
+.sidebar > :first-child {
+  flex-basis: var(--side, 15rem);
+  flex-grow: 1;
+}
+.sidebar > :last-child {
+  flex-basis: 0;
+  flex-grow: 999;
+  min-inline-size: var(--min, 60%);
+}
+
+/* ── Switcher：到达阈值就从「一行」整体切到「一列」（4.4 节） ───────────
+   原理：flex-basis: (阈值 - 100%) * 999
+   容器宽 > 阈值 → 结果为大负数 → 被 clamp 到 0 → 平分一行；
+   容器宽 < 阈值 → 结果为大正数 → 每项独占一行。                    */
+.switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--gap, var(--space-5));
+}
+.switcher > * {
+  flex-grow: 1;
+  flex-basis: calc((var(--threshold, 32rem) - 100%) * 999);
+}
+
+/* ── Grid-auto（RAM 技法）：内容驱动的自动列数（4.4 节） ────────────────
+   min(100%, --min) 中的 min() 是防止在 320px 视口下轨道比容器还宽而溢出。 */
+.grid-auto {
+  display: grid;
+  gap: var(--gap, var(--space-5));
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--min, 18rem)), 1fr)
+  );
+}
+
+/* ── Grid-12：站点主网格（2.1 节） ──────────────────────────────────────
+   minmax(0, 1fr) 中的 0 不可省：默认 min 是 auto，长单词/宽表格会把
+   轨道撑破容器 —— 这是 Grid 最经典的溢出坑。                        */
+.grid-12 {
+  display: grid;
+  gap: var(--grid-gutter);
+  grid-template-columns: repeat(var(--grid-columns), minmax(0, 1fr));
+}
+
+/* ── Center：内容居中 + 行长约束 + 两侧留白（1.4 + 2.2 节） ────────────── */
+.center {
+  box-sizing: content-box;
+  max-inline-size: var(--max, var(--grid-max));
+  margin-inline: auto;
+  padding-inline: var(--gutter, var(--space-5));
+}
+
+/* ── Box：卡片面（5.2 节层次） ─────────────────────────────────────────── */
+.box {
+  background: var(--surface-1);
+  border: var(--hairline) solid var(--line-1);
+  border-radius: var(--radius);
+  padding: var(--box-pad, var(--space-5));
+  box-shadow: var(--elevation-1);
+}
+
+/* ── Frame：固定比例容器，媒体到达前就占好位（6.3 节 CLS） ─────────────── */
+.frame {
+  aspect-ratio: var(--ratio, 16 / 9);
+  overflow: hidden;
+  position: relative;
+}
+.frame > * {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}
+
+/* ── Reel：横向滚动条（表格 / 宽图的唯一合法横向滚动出口，9.1 节） ─────── */
+.reel {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}

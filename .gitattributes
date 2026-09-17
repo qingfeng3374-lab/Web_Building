@@ -1,0 +1,15 @@
+# 仓库内一律用 LF，检出时按平台自行处理。
+# 没有这一行，Windows 上提交会把整份源码变成 CRLF，
+# 于是在 Linux 上做的第一次改动会显示成「整个文件都变了」。
+* text=auto eol=lf
+
+# 二进制资产不做行尾转换
+*.png binary
+*.jpg binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ico binary
+
+# 锁文件与统计：不计入语言统计，diff 时折叠
+pnpm-lock.yaml -diff linguist-generated

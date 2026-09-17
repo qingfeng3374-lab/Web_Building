@@ -1,0 +1,160 @@
+---
+import { Code } from 'astro:components';
+import type { Block } from '@/content/types';
+import type { Locale } from '@/i18n/locales';
+import { renderInline } from '@/lib/inline';
+import { markLines } from '@/lib/shiki-mark';
+import { useUI } from '@/i18n/ui';
+
+interface Props {
+  blocks: Block[];
+  locale: Locale;
+}
+
+const { blocks, locale } = Astro.props;
+const t = useUI(locale);
+const md = (s: string) => renderInline(s);
+---
+
+{
+  blocks.map((b) => {
+    switch (b.t) {
+      case 'p':
+        return <p set:html={md(b.text[locale])} />;
+      case 'h':
+        return <h3 set:html={md(b.text[locale])} />;
+      case 'h4':
+        return <h4 set:html={md(b.text[locale])} />;
+      case 'ul':
+        return (
+          <ul>
+            {b.items.map((it) => (
+              <li set:html={md(it[locale])} />
+            ))}
+          </ul>
+        );
+      case 'ol':
+        return (
+          <ol>
+            {b.items.map((it) => (
+              <li set:html={md(it[locale])} />
+            ))}
+          </ol>
+        );
+      case 'note':
+        return <p class="note" set:html={md(b.text[locale])} />;
+      case 'key':
+        return <p class="key-point" set:html={md(b.text[locale])} />;
+      case 'pitfall':
+        return <p class="pitfall" set:html={md(b.text[locale])} />;
+      case 'quote':
+        return (
+          <blockquote class="theory-quote">
+            <span set:html={md(b.text[locale])} />
+            <cite set:html={md(b.cite[locale])} />
+          </blockquote>
+        );
+      case 'table':
+        return (
+          <div class="table-wrap reel">
+            <table class="theory-table">
+              <thead>
+                <tr>
+                  {b.head.map((h) => (
+                    <th scope="col" set:html={md(h[locale])} />
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {b.rows.map((row) => (
+                  <tr>
+                    {row.map((cell, i) =>
+                      i === 0 ? <th scope="row" set:html={md(cell[locale])} /> : <td set:html={md(cell[locale])} />,
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      case 'versus':
+        return (
+          <div class="versus">
+            <div class="good">
+              <h5 set:html={`✓ ${md(b.good.title[locale])}`} />
+              <p set:html={md(b.good.text[locale])} />
+            </div>
+            <div class="bad">
+              <h5 set:html={`✗ ${md(b.bad.title[locale])}`} />
+              <p set:html={md(b.bad.text[locale])} />
+            </div>
+          </div>
+        );
+      case 'code':
+        return (
+          <div class="code-group">
+            {b.purpose && <p class="code-purpose" set:html={md(b.purpose[locale])} />}
+            <div class:list={['code-block', !b.file && 'code-block--plain']}>
+              {b.file && (
+                <div class="code-block__title">
+                  <span set:html={md(b.file[locale])} />
+                  <span class="code-block__lang">{b.lang}</span>
+                </div>
+              )}
+              <Code
+                code={b.code}
+                lang={b.lang === 'text' ? 'plaintext' : b.lang}
+                theme="github-dark-default"
+                transformers={markLines(b.highlight)}
+              />
+              {/* 成功后的文案通过 data-copied 下发：脚本是客户端的，拿不到 t()，
+                  之前它把「已复制 / Copied」写死在 JS 里 —— 那份文案绕过了 i18n 门禁，
+                  parity 脚本永远检查不到它。 */}
+              <button
+                class="copy-btn"
+                type="button"
+                data-copy
+                data-copied={t('common.copied')}
+                aria-label={t('common.copy')}
+              >
+                {t('common.copy')}
+              </button>
+            </div>
+            {b.key && <p class="key-point" set:html={md(b.key[locale])} />}
+            {b.pitfall && <p class="pitfall" set:html={md(b.pitfall[locale])} />}
+          </div>
+        );
+      default:
+        return null;
+    }
+  })
+}
+
+<style>
+  .code-group + .code-group {
+    margin-block-start: var(--space-6);
+  }
+  .code-group > * + * {
+    margin-block-start: var(--space-3);
+  }
+</style>
+
+<script>
+  // 复制按钮：一次性事件委托，全站共用
+  if (!(window as any).__copyBound) {
+    (window as any).__copyBound = true;
+    document.addEventListener('click', async (e) => {
+      const btn = (e.target as HTMLElement)?.closest('[data-copy]') as HTMLButtonElement | null;
+      if (!btn) return;
+      const code = btn.closest('.code-block')?.querySelector('code')?.textContent ?? '';
+      try {
+        await navigator.clipboard.writeText(code);
+        const prev = btn.textContent;
+        btn.textContent = btn.dataset.copied ?? prev;
+        setTimeout(() => (btn.textContent = prev), 1400);
+      } catch {
+        /* 剪贴板不可用时静默失败，不打断阅读 */
+      }
+    });
+  }
+</script>

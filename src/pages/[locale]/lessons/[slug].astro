@@ -1,0 +1,25 @@
+---
+import LessonLayout from '@/layouts/LessonLayout.astro';
+import { lessons } from '@/content';
+import { LOCALES, type Locale } from '@/i18n/locales';
+
+/**
+ * 章节页。
+ * getStaticPaths 做的是「语言 × 章节」的笛卡尔积 —— 6 章 × 2 语言 = 12 个静态页。
+ * slug 语言无关，所以 /zh/lessons/grid/ 与 /en/lessons/grid/ 一一对应，
+ * 切换语言时能精确停在同一小节的同一面板。
+ */
+export function getStaticPaths() {
+  return LOCALES.flatMap((locale) =>
+    lessons.map((lesson) => ({
+      params: { locale, slug: lesson.slug },
+      props: { lesson },
+    })),
+  );
+}
+
+const { locale } = Astro.params as { locale: Locale };
+const { lesson } = Astro.props;
+---
+
+<LessonLayout lesson={lesson} locale={locale} />

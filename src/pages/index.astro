@@ -1,0 +1,39 @@
+---
+/**
+ * 根路径：按浏览器语言猜一次，然后跳转。
+ *
+ * 用 meta refresh + 内联脚本而不是服务端 302 —— 因为这是纯静态站点，
+ * 没有服务器可以发 302。脚本优先（快且能读 navigator.language），
+ * meta refresh 兜底（禁用 JS 时仍能进站）。
+ */
+const base = import.meta.env.BASE_URL;
+const fallback = `${base}zh/`;
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>页面布局之道 / The Craft of Page Layout</title>
+    <meta name="robots" content="noindex" />
+    <meta http-equiv="refresh" content={`0; url=${fallback}`} />
+    <link rel="canonical" href={fallback} />
+    <script is:inline define:vars={{ base }}>
+      (function () {
+        var saved = null;
+        try {
+          saved = localStorage.getItem('lc-locale');
+        } catch (e) {}
+        var lang = saved || (navigator.language || 'zh').toLowerCase();
+        var loc = lang.indexOf('zh') === 0 || saved === 'zh' ? 'zh' : 'en';
+        location.replace(base + loc + '/');
+      })();
+    </script>
+  </head>
+  <body>
+    <p style="font-family: system-ui; padding: 2rem">
+      <a href={`${base}zh/`}>进入中文版</a> · <a href={`${base}en/`}>Go to English</a>
+    </p>
+  </body>
+</html>

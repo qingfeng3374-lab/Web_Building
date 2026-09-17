@@ -1,0 +1,198 @@
+---
+import { lessons } from '@/content';
+import { LOCALES, LOCALE_META, path, switchLocalePath, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+import ThemeToggle from './ThemeToggle.svelte';
+
+interface Props {
+  locale: Locale;
+  currentLesson: number;
+}
+
+const { locale, currentLesson } = Astro.props;
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+const here = Astro.url.pathname;
+
+/** 中文序数：顶栏写「第三章」而不是「3」。
+ *  阿拉伯数字需要读者自己把「3」翻译成「第三章」，虽然只是一瞬，
+ *  但导航条的职责就是省掉这一瞬。 */
+const ZH_NUM = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十'];
+/** 超出 ZH_NUM 就退回阿拉伯数字。
+ *  上一版直接写 `ZH_NUM[n]`，加到第七章时会静默渲染成「第undefined章」——
+ *  数组越界在 JS 里不抛错，这类 bug 只能靠人眼在页面上发现。
+ *  兜底一行，把「静默出错」换成「样子没那么好看但仍然正确」。 */
+const chapterLabel = (n: number) => (locale === 'zh' ? `第${ZH_NUM[n] ?? n}章` : `Ch.${n}`);
+
+/** 英文层名在顶栏里去掉结尾的 “layer”。
+ *  六个条目并排时，这个词出现六次而不区分任何东西 —— 它是纯噪声，
+ *  而且正是它让英文版的章节条溢出 500 多像素。中文没有这个问题
+ *  （「内容层」的「层」只占一个字），所以只裁英文。 */
+const layerLabel = (s: string) => (locale === 'zh' ? s : s.replace(/\s+layer$/i, ''));
+---
+
+{/*
+  页眉是一条**悬浮的玻璃药丸**，而不是通栏的横条。
+  两者的差别不只是好看：药丸有明确的四条边，因此它读起来是「一个控件」，
+  而通栏横条读起来是「页面的一部分」。前者在滚动时压在内容上不会显得突兀 ——
+  这正是第 5.4 节讲的「遮挡是最强的深度线索」。
+
+  滚动超过 8px 后进入 is-scrolled：药丸变矮、变密实、边框染上强调色。
+  用状态而不是动画表达「你已经离开顶部」，是因为它可被中断、可被反向读取。
+*/}
+<nav class="topbar" aria-label={t('nav.chapters')}>
+  <div class="topbar__bar">
+  <a class="topbar__brand" href={path(base, locale)}>
+    <span class="topbar__mark" aria-hidden="true">◫</span>
+    {/* 名称用站名、副行用「这个链接去哪」——反过来写的话，
+        最显眼的位置放的是导航目的地，而不是读者所在的地方。 */}
+    <span class="topbar__copy">
+      <span class="topbar__name">{t('site.title')}</span>
+      <span class="topbar__tagline">{t('nav.home')}</span>
+    </span>
+  </a>
+
+  {/*
+    章节条是一条可横向滚动的轨道。三处刻意的设计：
+      ① 标签只放「第 N 章 · 层名」——完整标题在侧栏目录里。
+         顶栏的职责是**定位**，不是复述；六个短标签在 1440px 下能一次看全。
+      ② 轨道两端有渐隐遮罩，告诉读者「右边还有」——溢出必须可见，
+         否则就是把内容藏起来（§6.5 讲的就是这件事）。
+      ③ 左右各一个滚动按钮，只在真的溢出时出现；鼠标滚轮也能横向滚。
+  */}
+  <div class="topbar__rail">
+    <button class="topbar__scroll topbar__scroll--prev" type="button" data-scroll="-1" aria-label={t('nav.scrollPrev')} hidden>
+      ‹
+    </button>
+
+    <ul class="topbar__nav">
+      {
+        lessons.map((lesson) => (
+          <li>
+            <a
+              class="topbar__link"
+              href={path(base, locale, 'lessons', lesson.slug)}
+              style={`--ch: var(${lesson.accentVar})`}
+              aria-current={currentLesson === lesson.order ? 'page' : undefined}
+              title={lesson.title[locale]}
+            >
+              <span class="topbar__n">{chapterLabel(lesson.order)}</span>
+              <span class="topbar__label">{layerLabel(lesson.layer[locale])}</span>
+            </a>
+          </li>
+        ))
+      }
+      <li>
+        <a class="topbar__link topbar__link--plain" href={path(base, locale, 'case')} aria-current={currentLesson === -1 ? 'page' : undefined}>
+          {t('nav.case')}
+        </a>
+      </li>
+      <li>
+        <a class="topbar__link topbar__link--plain" href={path(base, locale, 'about')} aria-current={currentLesson === -2 ? 'page' : undefined}>
+          {t('nav.about')}
+        </a>
+      </li>
+    </ul>
+
+    <button class="topbar__scroll topbar__scroll--next" type="button" data-scroll="1" aria-label={t('nav.scrollNext')} hidden>
+      ›
+    </button>
+  </div>
+
+  <div class="topbar__tools">
+    {/*
+      语言切换是纯 <a> —— 路由级 i18n 的直接红利：零 JS、可被爬虫跟随、
+      右键「在新标签打开」也能正常工作（样例的 JS 切换做不到这三点）。
+    */}
+    <div class="segmented" role="group" aria-label={t('nav.lang')}>
+      {
+        LOCALES.map((loc) => (
+          <a
+            href={loc === locale ? here : switchLocalePath(here, loc, base)}
+            aria-current={loc === locale ? 'true' : undefined}
+            hreflang={LOCALE_META[loc].htmlLang}
+            lang={LOCALE_META[loc].htmlLang}
+          >
+            {LOCALE_META[loc].short}
+          </a>
+        ))
+      }
+    </div>
+    <ThemeToggle client:idle label={t('nav.theme')} />
+  </div>
+  </div>
+</nav>
+
+<script>
+  // 切换语言时带上当前 hash（#s-1-2--demo），保证停在同一小节的同一面板。
+  // 服务端渲染拿不到 hash，所以这一小段必须在客户端补。
+  document.querySelectorAll<HTMLAnchorElement>('.topbar .segmented a').forEach((a) => {
+    a.addEventListener('click', () => {
+      if (location.hash) a.href = a.href.split('#')[0] + location.hash;
+    });
+  });
+
+  /* ── 章节轨道：让溢出可见、可达 ────────────────────────────────────────
+     溢出本身不是问题，**藏起来的溢出**才是。这里做三件事：
+       ① 按实际溢出量决定两端遮罩与滚动按钮的显隐
+       ② 竖向滚轮映射为横向滚动（轨道只有一行，竖向滚没有意义）
+       ③ 进页面时把当前章节滚进视野 —— 读第 6 章的人不该自己去找
+     纯原生 DOM，不值得为它挂一个岛。                                    */
+  (() => {
+    const rail = document.querySelector<HTMLElement>('.topbar__rail');
+    const nav = rail?.querySelector<HTMLElement>('.topbar__nav');
+    if (!rail || !nav) return;
+
+    const btns = [...rail.querySelectorAll<HTMLButtonElement>('.topbar__scroll')];
+
+    function sync() {
+      const max = nav!.scrollWidth - nav!.clientWidth;
+      const x = nav!.scrollLeft;
+      // 1px 容差：子像素宽度下 scrollWidth 与 clientWidth 常差零点几
+      const atStart = x <= 1;
+      const atEnd = x >= max - 1;
+      rail!.classList.toggle('is-overflowing', max > 1);
+      rail!.classList.toggle('at-start', atStart);
+      rail!.classList.toggle('at-end', atEnd);
+      btns.forEach((b) => {
+        const dir = Number(b.dataset.scroll);
+        b.hidden = max <= 1 || (dir < 0 ? atStart : atEnd);
+      });
+    }
+
+    btns.forEach((b) =>
+      b.addEventListener('click', () => {
+        nav!.scrollBy({ left: Number(b.dataset.scroll) * nav!.clientWidth * 0.7, behavior: 'smooth' });
+      }),
+    );
+
+    nav.addEventListener('scroll', sync, { passive: true });
+    new ResizeObserver(sync).observe(nav);
+
+    // 竖向滚轮 → 横向滚动。只在轨道真的溢出时接管，否则会吃掉页面滚动。
+    nav.addEventListener(
+      'wheel',
+      (e) => {
+        if (nav.scrollWidth <= nav.clientWidth) return;
+        if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+        e.preventDefault();
+        nav.scrollLeft += e.deltaY;
+      },
+      { passive: false },
+    );
+
+    const current = nav.querySelector<HTMLElement>('[aria-current="page"]');
+    if (current) current.scrollIntoView({ inline: 'center', block: 'nearest' });
+    sync();
+  })();
+
+  /* ── 滚动状态：离开顶部后药丸收紧 ──────────────────────────────────────
+     阈值取 8px 而不是 0，是为了避免橡皮筋回弹时在两个状态之间抖动。   */
+  (() => {
+    const bar = document.querySelector<HTMLElement>('.topbar');
+    if (!bar) return;
+    const sync = () => bar.classList.toggle('is-scrolled', window.scrollY > 8);
+    window.addEventListener('scroll', sync, { passive: true });
+    sync();
+  })();
+</script>

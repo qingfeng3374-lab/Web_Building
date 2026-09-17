@@ -1,0 +1,115 @@
+---
+import type { Section } from '@/content/types';
+import type { Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+import { anchorOf } from '@/content';
+import { referenceById } from '@/content/references';
+import { renderInline } from '@/lib/inline';
+import Blocks from './Blocks.astro';
+import SectionTabs from './SectionTabs.svelte';
+import DemoHost from './DemoHost.svelte';
+
+interface Props {
+  section: Section;
+  locale: Locale;
+  accentVar: string;
+}
+
+const { section, locale, accentVar } = Astro.props;
+const t = useUI(locale);
+const anchor = anchorOf(section);
+const refs = section.theory.map((id) => referenceById.get(id)).filter(Boolean);
+
+const labels = {
+  explain: t('tab.explain'),
+  code: t('tab.code'),
+  demo: t('tab.demo'),
+};
+---
+
+<article class="section-card" id={anchor} style={`--section-accent: var(${accentVar})`}>
+  <header class="section-card__head">
+    <span class="section-card__id" style={`--ch: var(${accentVar})`}>{section.id}</span>
+    <h2>{section.title[locale]}</h2>
+    <p class="section-card__sub">{section.subtitle[locale]}</p>
+  </header>
+
+  <div class="section-card__body">
+    {/* tablist 由 Svelte 拥有（键盘模型 + 可见性）；三个面板是静态 HTML */}
+    <SectionTabs client:visible sectionId={anchor} labels={labels} groupLabel={t('tab.group')} />
+
+    {/* 无 JS 时三个面板全部可读 —— 渐进增强，不是可选项 */}
+    <noscript>
+      <style>[data-panel] { display: block !important; }</style>
+    </noscript>
+
+    <div class="tabpanel prose" role="tabpanel" data-panel id={`${anchor}-panel-explain`} tabindex="0">
+      <Blocks blocks={section.explain} locale={locale} />
+
+      {
+        refs.length > 0 && (
+          <footer class="theory-refs">
+            <span class="theory-refs__label">{t('common.theory')}</span>
+            <ul>
+              {refs.map((r) => (
+                <li>
+                  <strong>{r!.authors}</strong> ({r!.year}) · {r!.title[locale]}
+                  <span class="theory-refs__use"> — {r!.usedFor[locale]}</span>
+                </li>
+              ))}
+            </ul>
+          </footer>
+        )
+      }
+    </div>
+
+    <div class="tabpanel prose" role="tabpanel" data-panel id={`${anchor}-panel-code`} tabindex="0" hidden>
+      <Blocks blocks={section.code} locale={locale} />
+    </div>
+
+    <div class="tabpanel" role="tabpanel" data-panel id={`${anchor}-panel-demo`} tabindex="0" hidden>
+      <p class="demo-hint">
+        <span class="demo-hint__tag">{t('common.tryIt')}</span>
+        <span set:html={renderInline(section.demo.hint[locale])} />
+      </p>
+      <DemoHost
+        client:visible
+        demoId={section.demo.id}
+        locale={locale}
+        loadingText={t('common.loading')}
+        label={`${section.id} ${section.title[locale]}`}
+      />
+    </div>
+
+  </div>
+</article>
+
+<style>
+  .theory-refs {
+    margin-block-start: var(--space-7);
+    padding-block-start: var(--space-4);
+    border-block-start: var(--hairline) solid var(--line-1);
+    font-size: var(--step--2);
+    color: var(--ink-3);
+    max-inline-size: none;
+  }
+  .theory-refs__label {
+    display: inline-block;
+    padding: 2px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: var(--surface-2);
+    color: var(--ink-3);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .theory-refs ul {
+    margin-block-start: var(--space-2);
+    padding-inline-start: 1.2em;
+  }
+  .theory-refs li {
+    margin-block-start: var(--space-1);
+  }
+  .theory-refs__use {
+    color: var(--ink-4);
+  }
+</style>

@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # ── 内容门禁：这两条是本项目最重要的检查 ──────────────────────
+      # 中英漏译、theory 引用失效、demo id 写错，都在这里被挡住
+      - name: 中英内容一致性
+        run: pnpm parity
+
+      # 间距 / 字号出现字面量就失败（第 2.3 节的规则，机器执行）
+      - name: 设计令牌
+        run: pnpm tokens
+
+      # ── 类型门禁 ──────────────────────────────────────────────────
+      - name: Astro 类型检查
+        run: pnpm exec astro check
+
+      - name: Svelte 类型检查
+        run: pnpm exec svelte-check --tsconfig ./tsconfig.json --threshold error
+
+      # ── 测试 ──────────────────────────────────────────────────────
+      # 布局度量的纯函数是全站可信度的根基：
+      # 正文里写的每一个数字（层级分 0.05 → 0.84、行长 138 → 64ch、
+      # CLS 0.31 → 0.004、内容断点 624px）都由这些函数算出，
+      # 因此它们必须被覆盖
+      - name: 单元测试
+        run: pnpm test
+
+      # ── 构建 ──────────────────────────────────────────────────────
+      # Zod 校验在构建的第一秒执行：任何一节缺理论 / 缺代码 / 缺演示，构建直接失败
+      - name: 构建
+        run: pnpm exec astro build
+
+      - name: 产物体积断言
+        run: |
+          set -e
+          TABS=$(find dist/_astro -name 'SectionTabs*.js' -printf '%s' | head -c 20)
+          echo "SectionTabs 首屏块: ${TABS} bytes"
+          if [ "$TABS" -gt 8000 ]; then
+            echo "✗ 章节页首屏交互超过 8KB —— 检查是否有 D3 被误打进首屏块"
+            exit 1
+          fi
+          # p5 必须是独立块（不得混入任何共享块）
+          test -f "$(find dist/_astro -name 'p5*.js' | head -1)" \
+            || { echo '✗ p5 未被独立分包'; exit 1; }
+          echo "✓ 产物体积符合预期"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 7

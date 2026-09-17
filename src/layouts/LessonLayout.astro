@@ -1,0 +1,117 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import ChapterNav from '@/components/chrome/ChapterNav.svelte';
+import Section from '@/components/lesson/Section.astro';
+import P5Canvas from '@/components/decor/P5Canvas.svelte';
+import CaseStage from '@/components/case/CaseStage.svelte';
+import HeroWaves from '@/components/portal/HeroWaves.astro';
+import { anchorOf, neighbours } from '@/content';
+import type { Lesson } from '@/content/types';
+import { path, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+
+interface Props {
+  lesson: Lesson;
+  locale: Locale;
+}
+
+const { lesson, locale } = Astro.props;
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+const { prev, next } = neighbours(lesson.slug);
+
+const navItems = lesson.sections.map((s) => ({
+  id: s.id,
+  anchor: anchorOf(s),
+  title: s.title[locale],
+}));
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${locale === 'zh' ? `第 ${lesson.order} 章 · ` : `Ch.${lesson.order} · `}${lesson.title[locale]} — ${t('site.title')}`}
+  description={lesson.summary[locale]}
+  currentLesson={lesson.order}
+  accentVar={lesson.accentVar}
+>
+  <header class="lesson-header">
+    {/* p5 生成式丝带：纯装饰层，aria-hidden，reduced-motion 下不加载 */}
+    <P5Canvas client:visible sketch="ribbon" accentVar={lesson.accentVar} fallbackHeight={140} />
+    <div class="center lesson-header__inner">
+      <div>
+        <p class="lesson-header__eyebrow">
+          <span>{locale === 'zh' ? `第 ${lesson.order} 章` : `Chapter ${lesson.order}`}</span>
+          <span aria-hidden="true">·</span>
+          <span>{lesson.sections.length}{t('common.sections')}</span>
+        </p>
+        <h1>{lesson.title[locale]}</h1>
+        <p class="lesson-header__sub">{lesson.subtitle[locale]}</p>
+      </div>
+      <p class="lesson-header__meta">
+        <span class="kbd">G</span>
+        {locale === 'zh' ? ' 叠加网格 · ' : ' grid overlay · '}
+        <span class="kbd">←</span>
+        <span class="kbd">→</span>
+        {locale === 'zh' ? ' 切换面板' : ' switch panels'}
+      </p>
+    </div>
+
+    {/* 与门户同一支水波纹（小号）：让深色页头被下面的页面「啃」进去，
+        而不是用一条 3px 的硬边界一刀切开 —— 后者正是上一版看起来突兀的原因。 */}
+    <HeroWaves size="sm" />
+  </header>
+
+  <div class="center lesson-main">
+    <ChapterNav client:idle items={navItems} tocLabel={t('nav.toc')} lessonSlug={lesson.slug} />
+
+    <div class="lesson-sections">
+      {/* 案例入口条：点开是弹窗，不占章首的版面 —— 上下文应当随时可查，而不是挡路 */}
+      <CaseStage
+        client:visible
+        lesson={lesson.order}
+        locale={locale}
+        lessonTitle={lesson.title[locale]}
+        lessonSubtitle={lesson.subtitle[locale]}
+        lessonSummary={lesson.summary[locale]}
+        sectionTitles={lesson.sections.map((sec) => `${sec.id} ${sec.title[locale]}`)}
+        accentVar={lesson.accentVar}
+      />
+
+      {lesson.sections.map((section) => <Section section={section} locale={locale} accentVar={lesson.accentVar} />)}
+    </div>
+  </div>
+
+  <nav class="center pager" aria-label={t('nav.chapters')}>
+    {
+      prev ? (
+        <a href={path(base, locale, 'lessons', prev.slug)} rel="prev">
+          <span class="pager__dir">← {t('common.prev')}</span>
+          <span class="pager__title">{prev.title[locale]}</span>
+        </a>
+      ) : (
+        <a href={path(base, locale)} class="pager__portal">
+          <span class="pager__dir">←</span>
+          <span class="pager__title">{t('common.backHome')}</span>
+        </a>
+      )
+    }
+    <a href={path(base, locale, 'case')} class="pager__portal">
+      <span class="pager__dir">{t('portal.caseIntro')}</span>
+      <span class="pager__title">{t('nav.case')} →</span>
+    </a>
+    {
+      next && (
+        <a href={path(base, locale, 'lessons', next.slug)} rel="next" style="text-align:end">
+          <span class="pager__dir">{t('common.next')} →</span>
+          <span class="pager__title">{next.title[locale]}</span>
+        </a>
+      )
+    }
+  </nav>
+</BaseLayout>
+
+<style>
+  .lesson-sections {
+    min-inline-size: 0;
+  }
+</style>

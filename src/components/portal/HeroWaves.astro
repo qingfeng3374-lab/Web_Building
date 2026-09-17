@@ -1,0 +1,82 @@
+---
+interface Props {
+  /** 波形高度。门户 Hero 用大波（气势），章节页头用小波（只求一个过渡） */
+  size?: 'lg' | 'sm';
+}
+const { size = 'lg' } = Astro.props;
+
+/**
+ * 水波纹：Hero 底部的视差水面。
+ *
+ * 做法是经典的「一条路径、四份拷贝」：同一个 <path> 被 <use> 引用四次，
+ * 每一份有不同的动画时长（7 / 10 / 13 / 20s）、不同的起始延迟与不透明度。
+ * 四条周期互质的正弦边叠在一起，眼睛就读不出循环了 —— 这是用最小的代价
+ * 伪造「非周期」的标准手法。
+ *
+ * 一个值得说明的决定：波浪的填充色是 `var(--surface-0)`，也就是**页面底色**。
+ * 所以它不是「画在 Hero 上的一道装饰」，而是「页面从下方啃进 Hero 的一块」。
+ * 好处是切换明暗主题时完全不需要改任何东西 —— 波浪永远等于它下面那块地。
+ *
+ * 性能：只动 transform（走合成层，不触发布局，见 §6.7），
+ * `contain: layout style paint` 把重绘限制在这一层之内，
+ * `prefers-reduced-motion` 下直接停掉动画、留静态波形。
+ */
+---
+
+<div class:list={['hero-waves', `hero-waves--${size}`]} aria-hidden="true">
+  <svg viewBox="0 20 150 32" preserveAspectRatio="none" shape-rendering="auto">
+    <defs>
+      <path id="hero-gentle-wave" d="M-160 44c30 0 58-18 88-18s58 18 88 18 58-18 88-18 58 18 88 18v48h-352z"></path>
+    </defs>
+    <g>
+      <use href="#hero-gentle-wave" x="48" y="0" class="hero-waves__w hero-waves__w--1"></use>
+      <use href="#hero-gentle-wave" x="48" y="3" class="hero-waves__w hero-waves__w--2"></use>
+      <use href="#hero-gentle-wave" x="48" y="5" class="hero-waves__w hero-waves__w--3"></use>
+      <use href="#hero-gentle-wave" x="48" y="7" class="hero-waves__w hero-waves__w--4"></use>
+    </g>
+  </svg>
+</div>
+
+<style>
+  .hero-waves {
+    pointer-events: none;
+    position: absolute;
+    inset-inline: 0;
+    /* -1px：与下方区块重叠一个像素，消除子像素取整留下的白缝 */
+    inset-block-end: -1px;
+    z-index: var(--z-content);
+    block-size: var(--wave-h);
+    overflow: visible;
+    /* 提升为独立合成层，并把重绘关在里面 */
+    translate: 0 0;
+    contain: layout style paint;
+    isolation: isolate;
+  }
+  .hero-waves--lg { --wave-h: clamp(3.5rem, 10vw, 8.75rem); }
+  .hero-waves--sm { --wave-h: clamp(1.75rem, 4vw, 3.25rem); }
+  .hero-waves svg {
+    display: block;
+    inline-size: 100%;
+    block-size: 100%;
+    backface-visibility: hidden;
+  }
+  .hero-waves__w {
+    fill: var(--surface-0);
+    animation: hero-wave 25s cubic-bezier(0.5, 0.5, 0.45, 0.5) infinite;
+    will-change: transform;
+  }
+  /* 四层：时长互质，透明度递增 —— 越「靠前」的水面越实 */
+  .hero-waves__w--1 { opacity: 0.25; animation-delay: -2s; animation-duration: 7s; }
+  .hero-waves__w--2 { opacity: 0.5;  animation-delay: -3s; animation-duration: 10s; }
+  .hero-waves__w--3 { opacity: 0.75; animation-delay: -4s; animation-duration: 13s; }
+  .hero-waves__w--4 { animation-delay: -5s; animation-duration: 20s; }
+
+  @keyframes hero-wave {
+    from { translate: -90px 0; }
+    to   { translate: 85px 0; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hero-waves__w { animation: none; }
+  }
+</style>

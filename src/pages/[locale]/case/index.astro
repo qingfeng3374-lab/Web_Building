@@ -1,0 +1,226 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import CaseTimeline from '@/components/gallery/CaseTimeline.svelte';
+import DecisionTree from '@/components/gallery/DecisionTree.svelte';
+import Checklist from '@/components/gallery/Checklist.svelte';
+import CaseCompare from '@/components/case/CaseCompare.svelte';
+import { metricSpecs, stages } from '@/content/case';
+import { lessons, anchorOf } from '@/content';
+import { LOCALES, path, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params as { locale: Locale };
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+
+/** 构建期算好所有 §x.y → URL 的映射，作为 prop 下发给岛屿。
+ *  这样案例馆的两个岛屿就不必 import '@/content'，
+ *  六章正文（约 420KB）也就不会被打进客户端包。 */
+function sectionHref(sec: string): string {
+  const order = Number(sec.split('.')[0]);
+  const lesson = lessons.find((l) => l.order === order);
+  if (!lesson) return path(base, locale);
+  const section = lesson.sections.find((s) => s.id === sec);
+  return `${path(base, locale, 'lessons', lesson.slug)}#${section ? anchorOf(section) : ''}`;
+}
+
+const METRIC_LABELS: Record<string, { zh: string; en: string }> = {
+  measure: { zh: '行长', en: 'Measure' },
+  grouping: { zh: '分组比', en: 'Grouping ratio' },
+  consistency: { zh: '取值种类', en: 'Distinct values' },
+  hierarchy: { zh: '层级分', en: 'Hierarchy score' },
+  a11y: { zh: '可达性问题', en: 'A11y issues' },
+  cls: { zh: 'CLS', en: 'CLS' },
+};
+const metricLabel = (k: string) => METRIC_LABELS[k]![locale];
+const fmt = (v: number, digits: number) => v.toFixed(digits);
+
+/** 自检清单的分组名：直接从章节派生，不再在 data/checklist.ts 里抄一份。
+ *  在构建期算好传进岛屿 —— 岛屿里 import '@/content' 会把正文打进客户端包。 */
+const groupNames = lessons.map((l) => ({
+  order: l.order,
+  label: { zh: `第 ${l.order} 层 · ${l.layer.zh}`, en: `Layer ${l.order} · ${l.layer.en}` },
+}));
+
+const sectionHrefs = Object.fromEntries(
+  lessons.flatMap((l) => l.sections.map((s) => [s.id, sectionHref(s.id)])),
+);
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${t('nav.case')} — ${t('site.title')}`}
+  description={t('case.title')}
+  currentLesson={-1}
+  accentVar="--accent"
+>
+  <header class="center gallery-header">
+    <p class="gallery-header__eyebrow">{t('portal.caseIntro')}</p>
+    <h1>{t('case.title')}</h1>
+    <p class="gallery-header__lead">
+      {
+        locale === 'zh'
+          ? '同一份 DOM、同一份数据，七个阶段，只有 CSS 在生长。这里可以逐阶段对比、追踪六项指标的完整轨迹，并用决策树与自检清单把这门课变成可以带走的工具。'
+          : 'One DOM, one dataset, seven stages — only the CSS grows. Compare stage by stage, trace all six metrics end to end, and turn the course into portable tools with the decision tree and the checklist.'
+      }
+    </p>
+  </header>
+
+  <section class="center gallery-section">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">01<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{locale === 'zh' ? '一条走过来的路' : 'A path already walked'}</p>
+        <h2>{t('gallery.timeline')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          locale === 'zh'
+            ? '走过的那一段是发光的，没走到的还是灰线。点任一阶段，下面的看板会换成那一刻的真实 DOM。'
+            : 'The stretch already walked glows; what is ahead stays grey. Pick any stage and the dashboard below becomes the real DOM of that moment.'
+        }
+      </p>
+    </header>
+    <CaseTimeline client:visible locale={locale} />
+  </section>
+
+  <section class="center gallery-section">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">02<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{locale === 'zh' ? '同一份 DOM' : 'One and the same DOM'}</p>
+        <h2>{t('gallery.compare')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          locale === 'zh'
+            ? '左右两半是同一个页面的两个阶段，重叠在同一格里 —— 所以它们的高度永远一致，可以逐像素对照。'
+            : 'The two halves are two stages of the same page, stacked in one grid cell — so their heights always match and you can compare pixel by pixel.'
+        }
+      </p>
+    </header>
+    <CaseCompare client:visible before="stage0" after="stage6" locale={locale} />
+  </section>
+
+  <section class="center gallery-section">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">03<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{locale === 'zh' ? '编排的检验' : 'The test behind the structure'}</p>
+        <h2>{locale === 'zh' ? '六层与它们各自负责的指标' : 'The six layers and the metric each one owns'}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          locale === 'zh'
+            ? '每一层都必须能推动一项指标。推不动的层，要么不该存在，要么讲错了地方。'
+            : 'Every layer must move a metric. A layer that moves none either should not exist or is teaching the wrong thing.'
+        }
+      </p>
+    </header>
+    <div class="table-wrap reel">
+      <table class="theory-table">
+        <thead>
+          <tr>
+            <th scope="col">#</th>
+            <th scope="col">{locale === 'zh' ? '层' : 'Layer'}</th>
+            <th scope="col">{locale === 'zh' ? '加上了什么' : 'What it adds'}</th>
+            <th scope="col">{locale === 'zh' ? '本层推动的指标' : 'Metrics it moves'}</th>
+            <th scope="col">{locale === 'zh' ? '进入本层 → 离开本层' : 'Entering → leaving'}</th>
+            <th scope="col">{locale === 'zh' ? '案例小节' : 'Case section'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {
+            lessons.map((l) => {
+              const before = stages[l.order - 1]!;
+              const after = stages[l.order]!;
+              const owned = metricSpecs.filter((m) => after.moves.includes(m.key));
+              const caseSec = l.sections.find((sec) => sec.caseStage);
+              return (
+                <tr>
+                  <th scope="row">{l.order}</th>
+                  <td>{l.layer[locale]}</td>
+                  <td style="color: var(--ink-3)">{l.adds[locale]}</td>
+                  <td>{owned.map((m) => metricLabel(m.key)).join(locale === 'zh' ? '、' : ', ')}</td>
+                  <td style="font-variant-numeric: tabular-nums">
+                    {owned
+                      .map((m) => `${fmt(before.metrics[m.key], m.digits)} → ${fmt(after.metrics[m.key], m.digits)}`)
+                      .join(' / ')}
+                  </td>
+                  <td>{caseSec ? <a href={sectionHref(caseSec.id)}>§{caseSec.id}</a> : null}</td>
+                </tr>
+              );
+            })
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="center gallery-section">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">04<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{locale === 'zh' ? '带得走的工具' : 'Something to take with you'}</p>
+        <h2>{t('gallery.tree')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          locale === 'zh'
+            ? '决策树不替代理解，它是理解之后的索引 —— 每个结论都指回论证过它的那一节。'
+            : 'The tree does not replace understanding; it indexes it. Every conclusion links back to the section that argued for it.'
+        }
+      </p>
+    </header>
+    <DecisionTree client:visible locale={locale} sectionHrefs={sectionHrefs} />
+  </section>
+
+  <section class="center gallery-section">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">05<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{locale === 'zh' ? '上线前过一遍' : 'Before you ship'}</p>
+        <h2>{t('gallery.checklist')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          locale === 'zh'
+            ? '标了「可自动检测」的条目应该进 CI，而不是靠人记 —— 规范会被忘记，脚本不会。'
+            : 'Items marked machine-checkable belong in CI rather than in someone’s memory — conventions get forgotten, scripts do not.'
+        }
+      </p>
+    </header>
+    <Checklist client:visible locale={locale} sectionHrefs={sectionHrefs} groupNames={groupNames} />
+  </section>
+</BaseLayout>
+
+<style>
+  .gallery-header {
+    padding-block: var(--space-8) var(--space-6);
+  }
+  .gallery-header__eyebrow {
+    font-size: var(--step--2);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .gallery-header h1 {
+    margin-block-start: var(--space-3);
+  }
+  .gallery-header__lead {
+    margin-block-start: var(--space-4);
+    max-inline-size: var(--measure);
+    font-size: var(--step-1);
+    color: var(--ink-2);
+  }
+  .gallery-section {
+    padding-block: var(--space-7);
+    border-block-start: var(--hairline) solid var(--line-1);
+  }
+  /* 区块标题由全局 .ed 负责（见 components.css），这里只管区块本身的节奏 */
+</style>

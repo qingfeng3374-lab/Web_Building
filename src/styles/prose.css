@@ -1,0 +1,147 @@
+/* =============================================================================
+ * prose.css — 讲解正文排版
+ * 行长 68ch、1.7 行距、24px 基线节奏（第 1.4 / 2.4 节的自我应用）
+ * ========================================================================== */
+
+.prose {
+  max-inline-size: var(--measure);
+  color: var(--ink-2);
+  line-height: var(--leading-body);
+  font-size: var(--step-0);
+}
+
+/* 垂直节奏：不同元素之间的间距按「与前一个元素的关系」给，而非统一值 */
+.prose > * + *            { margin-block-start: var(--space-4); }
+.prose > * + h3           { margin-block-start: var(--space-7); }
+.prose > * + h4           { margin-block-start: var(--space-6); }
+.prose > h3 + *,
+.prose > h4 + *           { margin-block-start: var(--space-3); }
+.prose > * + .note,
+.prose > * + .key-point,
+.prose > * + figure,
+.prose > * + .reel        { margin-block-start: var(--space-5); }
+
+.prose h3 {
+  font-size: var(--step-1);
+  color: var(--ink-1);
+  /* 小节标题前的强调竖线：用 border 而非图标，零资源、可主题化 */
+  padding-inline-start: var(--space-3);
+  border-inline-start: 3px solid var(--section-accent, var(--accent));
+}
+
+.prose h4 {
+  font-size: var(--step-0);
+  color: var(--ink-1);
+  font-weight: 650;
+}
+
+.prose strong { color: var(--ink-1); font-weight: 650; }
+.prose em { font-style: normal; color: var(--ink-1); background: var(--accent-wash); padding: 0 0.25em; border-radius: var(--radius-sm); }
+
+.prose ul, .prose ol { padding-inline-start: 1.5em; }
+.prose li { margin-block-start: var(--space-2); }
+.prose li::marker { color: var(--ink-4); }
+
+/* 行内代码：与样例一致的深底浅字，但对比度提到 AA 以上 */
+.prose :not(pre) > code {
+  background: var(--surface-2);
+  color: var(--accent-ink);
+  border: var(--hairline) solid var(--line-1);
+  padding: 0.1em 0.4em;
+  border-radius: var(--radius-sm);
+  font-size: 0.88em;
+  word-break: break-word;
+}
+
+/* ── 课堂要点（继承样例 .note） ────────────────────────────────────────── */
+.note {
+  background: var(--warn-wash);
+  border-inline-start: 3px solid var(--warn);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+}
+.note strong { color: var(--warn); }
+
+/* ── 关键点解释（继承样例 .key-point） ────────────────────────────────── */
+.key-point {
+  background: var(--accent-wash);
+  border-inline-start: 3px solid var(--accent);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+}
+.key-point strong { color: var(--accent-ink); }
+
+/* ── 反面教材块：讲「常见错误」时用 ───────────────────────────────────── */
+.pitfall {
+  background: var(--bad-wash);
+  border-inline-start: 3px solid var(--bad);
+  padding: var(--space-4) var(--space-5);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: var(--step--1);
+}
+.pitfall strong { color: var(--bad); }
+
+/* ── 理论出处引用 ─────────────────────────────────────────────────────── */
+.theory-quote {
+  border-inline-start: 3px solid var(--line-2);
+  padding: var(--space-3) var(--space-5);
+  color: var(--ink-3);
+  font-size: var(--step--1);
+}
+.theory-quote cite {
+  display: block;
+  margin-block-start: var(--space-2);
+  font-style: normal;
+  font-size: var(--step--2);
+  color: var(--ink-4);
+}
+
+/* ── 表格（继承样例 .theory-table） ───────────────────────────────────── */
+.theory-table {
+  inline-size: 100%;
+  border-collapse: collapse;
+  font-size: var(--step--1);
+  background: var(--surface-1);
+}
+.theory-table th,
+.theory-table td {
+  border: var(--hairline) solid var(--line-1);
+  padding: var(--space-3) var(--space-4);
+  text-align: start;
+  vertical-align: top;
+}
+.theory-table th {
+  background: var(--surface-2);
+  color: var(--ink-1);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.theory-table tbody tr:nth-child(even) td { background: var(--surface-2); }
+.theory-table code { white-space: nowrap; }
+
+/* 表格永远包一层 .reel —— 这是全站唯一允许横向滚动的地方 */
+.table-wrap { overflow-x: auto; border-radius: var(--radius); }
+
+/* ── 对比双栏（✓ 正确 / ✗ 错误），讲解里高频使用 ───────────────────────── */
+.versus {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+}
+.versus > * {
+  border: var(--hairline) solid var(--line-1);
+  border-radius: var(--radius);
+  padding: var(--space-4);
+  font-size: var(--step--1);
+}
+.versus > .good { border-color: var(--good); background: var(--good-wash); }
+.versus > .bad  { border-color: var(--bad);  background: var(--bad-wash); }
+.versus h5 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--step-0);
+  color: var(--ink-1);
+}

@@ -1,0 +1,185 @@
+/* =============================================================================
+ * tokens.css — 全站唯一的数值来源（Single Source of Truth）
+ *
+ * 这个文件本身就是课程第 2 章（网格与尺度）与第 5 章（层次）的实现。
+ * 讲解页会直接引用此文件的真实内容 —— 所以它必须自洽、可解释、无魔数。
+ *
+ * 门禁：scripts/check-token-usage.mjs 会扫描全站 CSS，
+ *       禁止出现不在本表中的间距 / 字号字面量。
+ * ========================================================================== */
+
+:root {
+  /* ── 间距标尺：8pt 基数（2.3 节） ────────────────────────────────────────
+     取值规律：4 → 8 → 12 → 16 → 24 → 32 → 48 → 64 → 96
+     小端线性（4 的倍数，用于组件内部微调），
+     大端近似几何（×1.5，用于区块之间），兼顾精细与节奏。            */
+  --space-1: 0.25rem;  /*  4px  图标与文字的间隙 */
+  --space-2: 0.5rem;   /*  8px  行内元素成组 */
+  --space-3: 0.75rem;  /* 12px  紧凑控件内边距 */
+  --space-4: 1rem;     /* 16px  标准控件内边距 / 段落间距 */
+  --space-5: 1.5rem;   /* 24px  卡片内边距 / 网格水槽（= 基线单位） */
+  --space-6: 2rem;     /* 32px  子区块之间 */
+  --space-7: 3rem;     /* 48px  区块之间 */
+  --space-8: 4rem;     /* 64px  章节之间 */
+  --space-9: 6rem;     /* 96px  页面级留白 */
+
+  /* ── 排版音阶：1.25（大三度），流体化（2.5 + 4.2 节） ──────────────────
+     clamp(min, 斜率·vw + 截距, max)：视口 360px→1400px 之间线性插值。
+     配 rem 保证用户改浏览器字号时仍可缩放（4.2 节的可达性论点）。      */
+  --step--2: clamp(0.69rem, 0.67rem + 0.09vw, 0.75rem);
+  --step--1: clamp(0.80rem, 0.77rem + 0.15vw, 0.89rem);
+  --step-0:  clamp(0.94rem, 0.90rem + 0.19vw, 1.06rem);
+  --step-1:  clamp(1.13rem, 1.06rem + 0.32vw, 1.33rem);
+  --step-2:  clamp(1.35rem, 1.24rem + 0.50vw, 1.66rem);
+  --step-3:  clamp(1.62rem, 1.45rem + 0.76vw, 2.07rem);
+  --step-4:  clamp(1.94rem, 1.69rem + 1.13vw, 2.59rem);
+  --step-5:  clamp(2.33rem, 1.96rem + 1.65vw, 3.24rem);
+
+  /* ── 行长与垂直节奏（1.4 + 2.4 节） ───────────────────────────────────── */
+  --measure: 68ch;          /* 正文最大行长；45–75ch 区间的上四分位 */
+  --measure-narrow: 52ch;   /* 侧栏、要点块 */
+  --leading-body: 1.7;      /* 中文正文需要比英文更大的行距 */
+  --leading-tight: 1.25;    /* 标题 */
+  --rhythm: 1.5rem;         /* 基线单位 = 24px = --space-5 */
+
+  /* ── 12 列网格（2.1 节） ──────────────────────────────────────────────── */
+  --grid-columns: 12;
+  --grid-gutter: var(--space-5);
+  --grid-margin: var(--space-6);
+  --grid-max: 1440px;
+
+  /* ── 圆角与线（5.4 节：分隔手段的优先级） ─────────────────────────────── */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 14px;
+  /* 大圆角用于「整块面板」级别的容器：药丸页眉、门户展台。
+     半径越大，元素读起来越像一块独立的板子而不是页面的一部分 ——
+     这正是第 5.4 节说的「遮挡 / 边界」在起作用。 */
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.75rem;
+  --radius-pill: 999px;
+  --hairline: 1px;
+
+  /* ── 动效（reduced-motion 时整组归零） ────────────────────────────────── */
+  --motion-fast: 140ms;
+  --motion-base: 240ms;
+  --motion-slow: 520ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* ── 层级（z-index 集中管理，避免 9999 军备竞赛） ──────────────────────── */
+  --z-decor: 0;
+  --z-content: 1;
+  --z-sticky: 100;
+  --z-overlay: 500;
+  --z-topbar: 800;
+  --z-modal: 1000;
+
+  /* ── 字体栈 ───────────────────────────────────────────────────────────── */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --font-mono: ui-monospace, "JetBrains Mono", "Cascadia Mono", Consolas,
+               "Liberation Mono", monospace;
+
+  /* ── 六章强调色（供左侧目录、页头 p5 丝带、案例进度轴取用） ───────────── */
+  --ch1: #7c3aed;  /* 内容层 · 紫 */
+  --ch2: #0891b2;  /* 间距层 · 青 */
+  --ch3: #0d9488;  /* 尺度层 · 蓝绿 */
+  --ch4: #d97706;  /* 结构层 · 橙 */
+  --ch5: #db2777;  /* 视觉层 · 玫红 */
+  --ch6: #dc2626;  /* 适应层 · 红 */
+}
+
+/* ── 明亮主题（默认） ──────────────────────────────────────────────────── */
+:root,
+:root[data-theme='light'] {
+  color-scheme: light;
+
+  --surface-0: #f6f8fb;   /* 页面底 */
+  --surface-1: #ffffff;   /* 卡片 */
+  --surface-2: #f1f5f9;   /* 卡片内的次级面 */
+  --surface-3: #e2e8f0;   /* 输入框轨道等 */
+  --surface-inverse: #0f172a;
+
+  --ink-1: #0f172a;       /* 标题 */
+  --ink-2: #334155;       /* 正文 */
+  --ink-3: #64748b;       /* 次要文字 */
+  --ink-4: #94a3b8;       /* 占位 / 图表辅助线标签 */
+  --ink-inverse: #f1f5f9;
+
+  --line-1: #e2e8f0;      /* 常规分隔线 */
+  --line-2: #cbd5e1;      /* 强调分隔线 */
+
+  --accent: #2563eb;
+  --accent-ink: #1d4ed8;
+  --accent-wash: #eff6ff;
+  --accent-line: #bfdbfe;
+
+  --good: #059669;  --good-wash: #ecfdf5;
+  --warn: #d97706;  --warn-wash: #fffbeb;
+  --bad: #dc2626;   --bad-wash: #fef2f2;
+
+  /* 层次：明亮模式用阴影表达（5.2 节） */
+  --elevation-0: none;
+  --elevation-1: 0 1px 2px rgb(15 23 42 / 0.05);
+  --elevation-2: 0 2px 8px rgb(15 23 42 / 0.07), 0 1px 2px rgb(15 23 42 / 0.04);
+  --elevation-3: 0 10px 28px rgb(15 23 42 / 0.10), 0 2px 6px rgb(15 23 42 / 0.05);
+  /* 「浮起的纸」：大模糊 + 大负扩散。负扩散让阴影只出现在元素下方远处，
+     元素边缘反而干净 —— 读起来是「悬空」而不是「描了一圈边」。 */
+  --elevation-float: 0 30px 70px -55px rgb(15 23 42 / 0.75);
+  --elevation-bar: 0 18px 42px -34px rgb(15 23 42 / 0.52);
+
+  --code-bg: #0f172a;
+  --code-ink: #e2e8f0;
+}
+
+/* ── 暗色主题：阴影在暗底上几乎不可见，层次改由「亮度」承担（5.2 节）── */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --surface-0: #0b1120;
+  --surface-1: #131c2e;
+  --surface-2: #1b2639;
+  --surface-3: #263349;
+  --surface-inverse: #e2e8f0;
+
+  --ink-1: #f1f5f9;
+  --ink-2: #cbd5e1;
+  --ink-3: #94a3b8;
+  --ink-4: #64748b;
+  --ink-inverse: #0f172a;
+
+  --line-1: #263349;
+  --line-2: #33425c;
+
+  --accent: #60a5fa;
+  --accent-ink: #93c5fd;
+  --accent-wash: #16263f;
+  --accent-line: #1e3a5f;
+
+  --good: #34d399;  --good-wash: #0d2b22;
+  --warn: #fbbf24;  --warn-wash: #2e2410;
+  --bad: #f87171;   --bad-wash: #2f1618;
+
+  /* 注意：数值不是「变淡的阴影」，而是几乎取消阴影、靠 --surface-* 的亮度差分层 */
+  --elevation-0: none;
+  --elevation-1: 0 1px 1px rgb(0 0 0 / 0.30);
+  --elevation-2: 0 2px 6px rgb(0 0 0 / 0.38);
+  --elevation-3: 0 12px 30px rgb(0 0 0 / 0.45);
+  --elevation-float: 0 30px 70px -55px rgb(0 0 0 / 0.85);
+  --elevation-bar: 0 18px 42px -34px rgb(0 0 0 / 0.72);
+
+  --code-bg: #0a1020;
+  --code-ink: #dbe4f0;
+
+  --ch1: #a78bfa;  --ch2: #22d3ee;  --ch3: #2dd4bf;
+  --ch4: #fbbf24;  --ch5: #f472b6;  --ch6: #f87171;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}

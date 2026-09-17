@@ -1,0 +1,21 @@
+---
+import { type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+import { stats } from '@/content';
+
+interface Props {
+  locale: Locale;
+}
+const { locale } = Astro.props;
+const t = useUI(locale);
+---
+
+<footer class="site-footer">
+  <div class="center cluster" style="--cluster-justify: space-between; --gap: var(--space-4)">
+    <p>
+      {t('site.title')} · {stats.lessons}
+      {locale === 'zh' ? ' 章 / ' : ' chapters / '}{stats.sections}{t('common.sections')} · {t('footer.meta')}
+    </p>
+    <p>{t('footer.selfDemo')}</p>
+  </div>
+</footer>

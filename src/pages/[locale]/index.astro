@@ -1,0 +1,719 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import P5Canvas from '@/components/decor/P5Canvas.svelte';
+import HeroWaves from '@/components/portal/HeroWaves.astro';
+import LayerBrowser from '@/components/portal/LayerBrowser.svelte';
+import { lessons, stats } from '@/content';
+import { stages, metricSpecs } from '@/content/case';
+import { LOCALES, path, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params as { locale: Locale };
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+const zh = locale === 'zh';
+
+const layers = lessons.map((l) => ({
+  order: l.order,
+  slug: l.slug,
+  layerName: l.layer[locale],
+  title: l.title[locale],
+  subtitle: l.subtitle[locale],
+  summary: l.summary[locale],
+  adds: l.adds[locale],
+  sections: l.sections.length,
+  accentVar: l.accentVar,
+  href: path(base, locale, 'lessons', l.slug),
+  /** 这一层推动哪几项指标，以及推了多少 —— 每张卡片的「战绩」 */
+  moves: (stages[l.order]?.moves ?? []).map((k) => {
+    const spec = metricSpecs.find((m) => m.key === k)!;
+    return {
+      name: t(`metric.${k}` as any),
+      from: stages[l.order - 1]!.metrics[k].toFixed(spec.digits),
+      to: stages[l.order]!.metrics[k].toFixed(spec.digits),
+      unit: spec.unit,
+    };
+  }),
+}));
+
+/** 七个阶段的叙述文本。展台那张「纸」要展示它们 ——
+ *  这些句子本来就写在 case.ts 里，之前卡片一条都没用上。 */
+const stageInfo = stages.map((st) => ({
+  id: st.id.replace('stage', 'S'),
+  name: st.name[locale],
+  headline: st.headline[locale],
+  changes: st.changes.map((c) => c[locale]),
+}));
+
+const first = stages[0]!;
+const last = stages[stages.length - 1]!;
+
+/** Hero 里的四个计数 */
+const counts = [
+  { label: zh ? '章节' : 'Chapters', value: String(stats.lessons) },
+  { label: zh ? '知识小节' : 'Sections', value: String(stats.sections) },
+  { label: zh ? '交互演示' : 'Live demos', value: String(stats.demos) },
+  { label: zh ? '案例阶段' : 'Case stages', value: String(stages.length) },
+];
+---
+
+<BaseLayout locale={locale} title={`${t('site.title')} — ${t('site.subtitle')}`} description={t('site.subtitle')}>
+  {/* ═══════════════════════════════════════════════════════════════════
+      Hero：深色底 + p5 生成版面 + 底部水波纹。
+
+      深色不是为了「酷」：它把首屏和其余部分明确分成两层，读者一眼知道
+      「上面是宣言，下面是内容」。而水波纹用的是页面底色，
+      于是这条分界线是**被下方的页面啃出来的**，不是画上去的。
+      ═══════════════════════════════════════════════════════════════════ */}
+  <section class="hero">
+    <div class="hero__canvas" aria-hidden="true">
+      <P5Canvas sketch="layoutGen" accentVar="--accent" fallback="hatch" fallbackHeight={520} client:visible />
+    </div>
+    <div class="hero__veil" aria-hidden="true"></div>
+
+    <div class="center hero__inner">
+      {/* 主张卡：Hero 的主块。玻璃面板而不是裸文字 ——
+          深色底上直接放文字，文字和背后的生成版面会互相干扰；
+          给它一块半透明的板，既保住对比度，又不把画面完全盖住。 */}
+      <div class="hero__card hero__card--lead">
+        <p class="hero__eyebrow">{t('site.tagline')}</p>
+        <h1 class="hero__title">{t('site.title')}</h1>
+        <p class="hero__lead">
+          {
+            zh
+              ? '布局不是把元素摆好看，是把注意力调度到正确的地方。这门课不从语法开始，而是从一个只有内容、没有样式的页面开始 —— 每一章给它加一层能力，直到它成为一个真正能上线的界面。'
+              : 'Layout is not arranging elements attractively — it is scheduling attention. This course does not start from syntax. It starts from a page that has content and no styling, and adds one layer of capability per chapter until it becomes an interface that can actually ship.'
+          }
+        </p>
+        <div class="cluster hero__actions">
+          <a class="btn btn--primary" href={layers[0]!.href}>{t('portal.start')}</a>
+          <a class="btn btn--ghost" href={path(base, locale, 'case')}>{t('nav.case')} →</a>
+        </div>
+      </div>
+
+      {/* 六层剖面：一个小而有信息量的部件。
+          上一版这里是六段各取章节色的色块条 —— 六种高饱和色并排，
+          在深色 Hero 上像一排霓虹，和全站的冷灰蓝完全是两套语言。
+          改成「剖面图」：六层自下而上堆叠，越上层越窄、越亮，
+          全部走同一支强调色的透明度梯度。
+          它同时说清三件事：有六层、必须自下而上、每层的厚度（小节数）。 */}
+      <a class="hero__card hero__card--layers" href={layers[0]!.href}>
+        <p class="hero__card-eyebrow">{zh ? '布局的六层' : 'The six layers'}</p>
+        <ul class="hero__strata">
+          {
+            [...layers].reverse().map((l, i) => (
+              <li
+                class="hero__stratum"
+                style={`--depth: ${layers.length - i}; --thick: ${l.sections}`}
+              >
+                <span class="hero__stratum-n">{layers.length - i}</span>
+                <span class="hero__stratum-name">{l.layerName}</span>
+                <span class="hero__stratum-bar" aria-hidden="true"></span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="hero__card-note">
+          {zh ? '自下而上，一层一层加。条长 = 该层的小节数。' : 'Bottom-up, one layer at a time. Bar length = sections in that layer.'}
+        </p>
+      </a>
+
+      {/* 四张计数卡：各自成卡，而不是挤在一个面板里的四行 */}
+      {
+        counts.map((c) => (
+          <div class="hero__card hero__card--stat">
+            <dt>{c.label}</dt>
+            <dd>{c.value}</dd>
+          </div>
+        ))
+      }
+
+      {/* 脚注卡：解释背景里那块画布在干什么 */}
+      <p class="hero__card hero__card--note">
+        {
+          zh
+            ? '背景里每一帧版面，都由这门课教的规则自动生成：12 列网格、span ∈ {3,4,6,8,12}、1.25 排版音阶、8pt 间距标尺，以及「每屏只有一个主块」的层级约束。'
+            : 'Every frame in the background is generated from the rules this course teaches: a 12-column grid, spans from {3,4,6,8,12}, a 1.25 type scale, an 8pt spacing scale, and the constraint that each screen has exactly one primary block.'
+        }
+      </p>
+    </div>
+
+    <HeroWaves />
+  </section>
+
+  {/* ═══ 01 · 互动展台 ═══ */}
+  <section class="center band">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">01<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{zh ? '亲手推一遍' : 'Push it yourself'}</p>
+        <h2>{zh ? '布局的六层，一层一层叠上去' : 'Six layers of layout, stacked one at a time'}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          zh
+            ? '顺序不能颠倒 —— 没有内容结构就谈不上间距，没有网格就谈不上层级，没有层级就谈不上自适应。'
+            : 'The order cannot be shuffled — spacing is meaningless without structure, hierarchy without a grid, adaptation without hierarchy.'
+        }
+      </p>
+    </header>
+    <LayerBrowser client:visible items={layers} stageInfo={stageInfo} locale={locale} />
+  </section>
+
+  {/* ═══ 02 · 六张章节卡 ═══ */}
+  <section class="center band">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">02<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{zh ? '课程结构' : 'Course structure'}</p>
+        <h2>{t('nav.chapters')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          zh
+            ? '每一章都有明确的产出与明确的判据：加上一层能力，推动一项可以计算的指标。'
+            : 'Every chapter has a definite output and a definite test: add one layer of capability, move one computable metric.'
+        }
+      </p>
+    </header>
+
+    <ol class="cards">
+      {
+        layers.map((l) => (
+          <li>
+            <a class="card" href={l.href} style={`--tone: var(${l.accentVar})`}>
+              <span class="card__mark" aria-hidden="true">0{l.order}</span>
+              <span class="card__layer">{l.layerName}</span>
+              <h3>{l.title.split(/[：:]/).slice(1).join('：') || l.title}</h3>
+              <p class="card__sub">{l.subtitle}</p>
+              <p class="card__adds">
+                <span class="card__tag">{zh ? '本层加上' : 'Adds'}</span>
+                {l.adds}
+              </p>
+              <ul class="card__moves">
+                {l.moves.map((m) => (
+                  <li>
+                    <span>{m.name}</span>
+                    <b>
+                      {m.from}
+                      {m.unit} → {m.to}
+                      {m.unit}
+                    </b>
+                  </li>
+                ))}
+              </ul>
+              <span class="card__foot">
+                <span>
+                  {l.sections}
+                  {t('common.sections')}
+                </span>
+                <span class="card__go" aria-hidden="true">→</span>
+              </span>
+            </a>
+          </li>
+        ))
+      }
+    </ol>
+  </section>
+
+  {/* ═══ 03 · 贯穿案例 ═══ */}
+  <section class="center band">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">03<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{t('portal.caseIntro')}</p>
+        <h2>{t('case.title')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          zh
+            ? '全课程只用一个页面。同一份 DOM、同一份数据，只有 CSS 在生长。'
+            : 'The whole course uses one page. One DOM, one dataset — only the CSS grows.'
+        }
+      </p>
+    </header>
+
+    <div class="ends">
+      <div class="end end--from">
+        <span class="end__tag">{first.id.replace('stage', 'S')} · {first.name[locale]}</span>
+        <p>{first.headline[locale]}</p>
+      </div>
+      <span class="ends__arrow" aria-hidden="true">→</span>
+      <div class="end end--to">
+        <span class="end__tag">{last.id.replace('stage', 'S')} · {last.name[locale]}</span>
+        <p>{last.headline[locale]}</p>
+      </div>
+    </div>
+
+    <ol class="stages">
+      {
+        stages.map((v, i) => (
+          <li class:list={['stage', i === 0 && 'stage--first', i === stages.length - 1 && 'stage--last']}>
+            <span class="stage__id">{v.id.replace('stage', 'S')}</span>
+            <span class="stage__name">{v.name[locale]}</span>
+            <span class="stage__head">{v.headline[locale]}</span>
+          </li>
+        ))
+      }
+    </ol>
+    <p class="band__foot">
+      <a href={path(base, locale, 'case')}>{t('case.openGallery')}</a>
+    </p>
+  </section>
+
+  {/* ═══ 04 · 怎么用 ═══ */}
+  <section class="center band band--last">
+    <header class="ed">
+      <span class="ed__mark" aria-hidden="true">04<i></i></span>
+      <div class="ed__title">
+        <p class="ed__kicker">{zh ? '阅读方式' : 'How to read'}</p>
+        <h2>{t('portal.howto')}</h2>
+      </div>
+      <p class="ed__note">
+        {
+          zh
+            ? '每一小节都是三块：讲清楚道理、给出关键代码、让你自己动手验证。'
+            : 'Every section comes in three parts: the reasoning, the key code, and something you can verify by hand.'
+        }
+      </p>
+    </header>
+
+    <div class="howto">
+      <div class="howto__card">
+        <h3>{t('tab.explain')}</h3>
+        <p>{zh ? '理论出处 + 为什么有效 + 什么时候会失效。每条原则都当场用在案例上，不讲悬空的道理。' : 'Where the theory comes from, why it works, and when it fails. Every principle is applied to the case on the spot.'}</p>
+      </div>
+      <div class="howto__card">
+        <h3>{t('tab.code')}</h3>
+        <p>{zh ? '每段代码都配「解决什么问题」「关键点在哪」「坑在哪」。改动前后并排，看得见差别。' : 'Each snippet ships with what it solves, the key idea, and the trap. Before and after sit side by side.'}</p>
+      </div>
+      <div class="howto__card">
+        <h3>{t('tab.demo')}</h3>
+        <p>{zh ? '全部是真实计算的 D3 演示：拖滑块、改参数，指标当场重算。没有一张是静态截图。' : 'Every demo is a live D3 computation: drag a slider and the metrics recompute. Not one static screenshot.'}</p>
+      </div>
+      <div class="howto__card">
+        <h3>◫ {zh ? '按 G 审查本站' : 'Press G to inspect'}</h3>
+        <p>{zh ? '本站遵守它讲的每一条规则。任意页面按 G 叠加 12 列网格，按 B 叠加 24px 基线，自己验证。' : 'This site obeys every rule it teaches. Press G for the 12-column grid, B for the 24px baseline.'}</p>
+      </div>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* ═══ Hero ═══════════════════════════════════════════════════════════ */
+  .hero {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    /* 深色底写死而不是用 --surface-inverse：Hero 在明暗两个主题下都应该是深色，
+       它是这个页面唯一一块「不跟随主题」的区域。跟着主题翻会让水波纹失去意义 ——
+       波浪是页面色啃进深色，两边都浅就没有啃这回事了。 */
+    background: #01040d;
+    color: #f8fafc;
+    /* 下方留出给水波纹的空间。这个值不是拍的：波形自身高度是
+       clamp(3.5rem, 10vw, 8.75rem)，留白只需略大于它 —— 多留就是空洞。 */
+    padding-block-end: clamp(3.5rem, 8.5vw, 7rem);
+  }
+  /* 画布层。底下垫一张**静态**的 12 列网格 + 24px 基线：
+     `prefers-reduced-motion` 下 p5 完全不加载（ADR-0004 约束 3），
+     如果只靠 p5，那批读者看到的就是一整块空的深色。
+     垫上这张网格之后，退化状态依然有内容 —— 而且是这门课自己的网格，
+     不是随便找的一张纹理。 */
+  .hero__canvas {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-decor);
+    opacity: 0.85;
+    background:
+      repeating-linear-gradient(
+        to right,
+        rgb(148 163 184 / 0.13) 0 1px,
+        transparent 1px calc(100% / var(--grid-columns))
+      ),
+      repeating-linear-gradient(to bottom, rgb(148 163 184 / 0.07) 0 1px, transparent 1px var(--rhythm));
+    background-size: 100% 100%, 100% 100%;
+  }
+  /* 双层遮罩，两层各有分工：
+     横向那层只压左边 —— 文字压在哪里，就把哪里压暗到足够的对比度，
+       右侧留给生成版面，让它真的看得见（遮罩的目的是护住可读性，不是把画面盖掉）；
+     纵向那层压住上下两端，让页眉药丸和水波纹都有干净的落脚处。 */
+  .hero__veil {
+    position: absolute;
+    inset: 0;
+    z-index: var(--z-decor);
+    background:
+      linear-gradient(90deg, rgb(1 4 13 / 0.94) 0%, rgb(1 4 13 / 0.72) 42%, rgb(1 4 13 / 0.1) 78%, transparent 100%),
+      linear-gradient(0deg, rgb(1 4 13 / 0.62), transparent 28%, transparent 72%, rgb(1 4 13 / 0.45));
+  }
+  /* Hero 内容改成「卡片铺排」：12 列网格，每张卡各占几列。
+     上一版是 7:5 两大块，右边那块把四个数字挤成一列，
+     底下还空出一大片 —— 又挤又空，正是没有把空间分配给内容的结果。 */
+  .hero__inner {
+    position: relative;
+    z-index: var(--z-content);
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: var(--space-4);
+    align-content: center;
+    padding-block: var(--space-8) var(--space-6);
+  }
+  @media (max-width: 62rem) {
+    .hero__inner {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      padding-block: var(--space-7) var(--space-5);
+    }
+  }
+
+  /* 所有 Hero 卡片共用的玻璃质感 */
+  .hero__card {
+    border: var(--hairline) solid rgb(255 255 255 / 0.14);
+    border-radius: var(--radius-xl);
+    background: rgb(2 6 23 / 0.5);
+    box-shadow: 0 24px 48px -32px rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(14px);
+  }
+
+  .hero__card--lead {
+    grid-column: span 7;
+    padding: var(--space-6);
+  }
+  .hero__card--layers {
+    grid-column: span 5;
+    display: grid;
+    align-content: center;
+    gap: var(--space-3);
+    padding: var(--space-5);
+    color: inherit;
+    text-decoration: none;
+    transition: border-color var(--motion-base), translate var(--motion-base) var(--ease-out);
+  }
+  .hero__card--layers:hover {
+    border-color: rgb(255 255 255 / 0.3);
+    translate: 0 -2px;
+  }
+  .hero__card--stat {
+    grid-column: span 3;
+    padding: var(--space-4) var(--space-5);
+  }
+  .hero__card--note {
+    grid-column: span 12;
+    padding: var(--space-4) var(--space-5);
+    color: rgb(226 232 240 / 0.62);
+    font-size: var(--step--2);
+    line-height: 1.7;
+  }
+  @media (max-width: 62rem) {
+    .hero__card--lead,
+    .hero__card--layers,
+    .hero__card--note { grid-column: span 6; }
+    .hero__card--stat { grid-column: span 3; }
+  }
+
+  .hero__eyebrow {
+    font-size: var(--step--2);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: #7dd3fc;
+    font-weight: 700;
+  }
+  .hero__title {
+    margin-block-start: var(--space-3);
+    color: #fff;
+    font-size: var(--step-5);
+    letter-spacing: -0.035em;
+    line-height: 1.1;
+  }
+  .hero__lead {
+    margin-block-start: var(--space-4);
+    max-inline-size: 34em;
+    color: rgb(226 232 240 / 0.86);
+    font-size: var(--step-1);
+    line-height: 1.75;
+  }
+  .hero__actions { margin-block-start: var(--space-5); }
+  /* 深色底上的次级按钮：用半透明白边而不是 --line-2（那是给浅底用的） */
+  .hero .btn--ghost {
+    border-color: rgb(255 255 255 / 0.28);
+    background: rgb(255 255 255 / 0.06);
+    color: #e2e8f0;
+  }
+  .hero .btn--ghost:hover { background: rgb(255 255 255 / 0.14); color: #fff; }
+
+  .hero__card-eyebrow {
+    color: #7dd3fc;
+    font-size: var(--step--2);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .hero__card-note { color: rgb(226 232 240 / 0.55); font-size: var(--step--2); }
+
+  /* ── 六层剖面 ──────────────────────────────────────────────────────
+     全部用同一支强调色，只让**透明度**随层数递增（--depth）。
+     六个色相并排会互相抢，而一支色相的六级明度差是天然有序的 ——
+     眼睛能直接读出「谁在上、谁在下」，这是色相做不到的。 */
+  .hero__strata {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 3px;
+  }
+  .hero__stratum {
+    display: grid;
+    grid-template-columns: 1.25rem minmax(4.5rem, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: var(--space-2);
+    font-size: var(--step--2);
+    /* 层号越大（越靠上）越亮：0.16 → 0.62 之间线性取值 */
+    --alpha: calc(0.14 + var(--depth) * 0.08);
+  }
+  .hero__stratum-n {
+    font-family: var(--font-mono);
+    color: rgb(125 211 252 / 0.75);
+    font-variant-numeric: tabular-nums;
+    text-align: end;
+  }
+  .hero__stratum-name {
+    color: rgb(226 232 240 / 0.88);
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  /* 条长按小节数加权 —— 所以这张图顺带回答了「哪一层内容最多」 */
+  .hero__stratum-bar {
+    block-size: 0.6rem;
+    border-radius: var(--radius-pill);
+    background: rgb(56 189 248 / var(--alpha));
+    /* 8 是六层里最大的小节数，用它做分母把条长归一化到 0–100% */
+    inline-size: calc(var(--thick) / 8 * 100%);
+    min-inline-size: var(--space-5);
+    transition: inline-size var(--motion-base) var(--ease-out);
+  }
+  .hero__card--layers:hover .hero__stratum-bar { background: rgb(56 189 248 / calc(var(--alpha) + 0.18)); }
+
+  .hero__card--stat dt { color: rgb(226 232 240 / 0.62); font-size: var(--step--2); }
+  .hero__card--stat dd {
+    margin: 0;
+    color: #fff;
+    font-size: var(--step-4);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  /* ═══ 通用区块 ═══ */
+  .band { padding-block: var(--space-8); }
+  .band--last { padding-block-end: var(--space-9); }
+  .band__foot { margin-block-start: var(--space-5); font-size: var(--step--1); }
+
+  /* ═══ 章节卡 ═══════════════════════════════════════════════════════
+     RAM 模式（§6.4）：列数跟着容器走，一条媒体查询都不写。
+     `min(100%, 21rem)` 里的 min() 是必须的 —— 没有它，320px 下会横向溢出。 */
+  .cards {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr));
+    gap: var(--space-5);
+  }
+  .card {
+    position: relative;
+    block-size: 100%;
+    display: grid;
+    grid-template-rows: auto auto auto 1fr auto auto;
+    gap: var(--space-3);
+    padding: var(--space-6) var(--space-5) var(--space-5);
+    border: var(--hairline) solid color-mix(in srgb, var(--tone) 22%, var(--line-1));
+    border-radius: var(--radius-2xl);
+    /* 斜向渐变染色 + 面色：色调只在左上角最浓，向右下淡出，
+       与卡片的阅读方向一致 */
+    background:
+      linear-gradient(135deg, color-mix(in srgb, var(--tone) 9%, transparent), transparent 62%),
+      var(--surface-1);
+    box-shadow: var(--elevation-float);
+    text-decoration: none;
+    color: inherit;
+    overflow: clip;
+    transition:
+      translate var(--motion-base) var(--ease-out),
+      box-shadow var(--motion-base),
+      border-color var(--motion-base);
+  }
+  .card:hover {
+    translate: 0 -3px;
+    border-color: color-mix(in srgb, var(--tone) 55%, transparent);
+    box-shadow:
+      var(--elevation-3),
+      0 0 0 1px color-mix(in srgb, var(--tone) 22%, transparent);
+  }
+  /* 卡片自己的幽灵数字水印 */
+  .card__mark {
+    position: absolute;
+    /* 与展台的水印同一套推导，只是小一号：上移 --space-4，字号是音阶顶档的 1.7 倍 */
+    inset-block-start: calc(var(--space-4) * -1);
+    inset-inline-end: var(--space-3);
+    color: color-mix(in srgb, var(--tone) 11%, transparent);
+    font-family: var(--font-mono);
+    font-size: calc(var(--step-5) * 1.7);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.1em;
+    line-height: 1;
+    user-select: none;
+    pointer-events: none;
+  }
+  .card__layer {
+    color: var(--tone);
+    font-size: var(--step--2);
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .card h3 {
+    font-size: var(--step-1);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+    padding-inline-end: var(--space-7);
+  }
+  .card__sub { font-size: var(--step--1); color: var(--ink-3); line-height: 1.7; }
+  .card__adds { align-self: start; font-size: var(--step--1); color: var(--ink-2); }
+  .card__tag {
+    display: inline-block;
+    margin-inline-end: var(--space-2);
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-sm);
+    background: color-mix(in srgb, var(--tone) 14%, transparent);
+    color: var(--tone);
+    font-size: var(--step--2);
+    font-weight: 700;
+  }
+  .card__moves {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-1);
+  }
+  .card__moves li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-2) var(--space-3);
+    border: var(--hairline) solid color-mix(in srgb, var(--tone) 18%, var(--line-1));
+    border-radius: var(--radius-pill);
+    background: color-mix(in srgb, var(--tone) 5%, var(--surface-0));
+    font-size: var(--step--2);
+    color: var(--ink-3);
+  }
+  .card__moves b {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    color: var(--good);
+  }
+  .card__foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-block-start: var(--space-3);
+    border-block-start: var(--hairline) solid var(--line-1);
+    font-size: var(--step--2);
+    color: var(--ink-4);
+  }
+  .card__go {
+    color: var(--tone);
+    font-size: var(--step-0);
+    transition: translate var(--motion-fast) var(--ease-out);
+  }
+  .card:hover .card__go { translate: 4px 0; }
+
+  /* ═══ 案例：两端对照 + 七个阶段 ═══ */
+  .ends {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    align-items: stretch;
+    gap: var(--space-4);
+    margin-block-end: var(--space-5);
+  }
+  @media (max-width: 48rem) {
+    .ends { grid-template-columns: minmax(0, 1fr); }
+    .ends__arrow { rotate: 90deg; justify-self: center; }
+  }
+  .end {
+    padding: var(--space-5);
+    border: var(--hairline) solid var(--line-1);
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+    box-shadow: var(--elevation-1);
+  }
+  .end--from { border-inline-start: 3px solid var(--bad); }
+  .end--to { border-inline-start: 3px solid var(--good); }
+  .end__tag {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 700;
+    color: var(--ink-4);
+  }
+  .end p {
+    margin-block-start: var(--space-2);
+    font-size: var(--step-0);
+    color: var(--ink-2);
+  }
+  .ends__arrow { align-self: center; color: var(--ink-4); font-size: var(--step-2); }
+
+  .stages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+    gap: var(--space-3);
+  }
+  .stage {
+    margin: 0;
+    display: grid;
+    gap: var(--space-1);
+    align-content: start;
+    padding: var(--space-4);
+    border: var(--hairline) solid var(--line-1);
+    border-block-start: 3px solid var(--line-2);
+    border-radius: var(--radius);
+    background: var(--surface-1);
+  }
+  .stage--first { border-block-start-color: var(--bad); }
+  .stage--last { border-block-start-color: var(--good); }
+  .stage__id {
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 700;
+    color: var(--ink-4);
+  }
+  .stage__name { font-size: var(--step-0); font-weight: 650; color: var(--ink-1); }
+  .stage__head { font-size: var(--step--2); color: var(--ink-3); line-height: 1.5; }
+
+  /* ═══ 怎么用 ═══ */
+  .howto {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr));
+    gap: var(--space-4);
+  }
+  .howto__card {
+    padding: var(--space-5);
+    border: var(--hairline) solid var(--line-1);
+    border-radius: var(--radius-xl);
+    background: var(--surface-1);
+    box-shadow: var(--elevation-1);
+  }
+  .howto h3 { font-size: var(--step-0); }
+  .howto p {
+    margin-block-start: var(--space-2);
+    font-size: var(--step--1);
+    color: var(--ink-2);
+    line-height: 1.7;
+  }
+</style>

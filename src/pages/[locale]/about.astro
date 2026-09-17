@@ -1,0 +1,266 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import P5Canvas from '@/components/decor/P5Canvas.svelte';
+import HeroWaves from '@/components/portal/HeroWaves.astro';
+import { references } from '@/content/references';
+import { sectionsCitingReference, anchorOf, stats } from '@/content';
+import { LOCALES, path, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+
+export function getStaticPaths() {
+  return LOCALES.map((locale) => ({ params: { locale } }));
+}
+
+const { locale } = Astro.params as { locale: Locale };
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+
+const GROUPS: Record<string, { zh: string; en: string }> = {
+  perception: { zh: '感知与认知', en: 'Perception and cognition' },
+  typography: { zh: '网格与排版', en: 'Grid and typography' },
+  engineering: { zh: 'Web 布局工程', en: 'Web layout engineering' },
+  accessibility: { zh: '可达性与性能', en: 'Accessibility and performance' },
+  information: { zh: '信息设计', en: 'Information design' },
+};
+
+const grouped = Object.keys(GROUPS).map((g) => ({
+  key: g,
+  label: GROUPS[g]![locale],
+  items: references.filter((r) => r.group === g),
+}));
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${t('nav.about')} — ${t('site.title')}`}
+  description={t('about.refs')}
+  currentLesson={-2}
+  accentVar="--accent"
+>
+  <header class="about-header">
+    {/* 与章节页头同一支流场丝带 —— 参考文献页在全站里最「文本」，
+        给它一层薄薄的动势，免得整页只是一张长名单。 */}
+    <P5Canvas client:visible sketch="ribbon" accentVar="--accent" fallbackHeight={160} />
+    <div class="center about-header__inner">
+    <h1>{t('nav.about')}</h1>
+    <p class="about-header__lead">
+      {
+        locale === 'zh'
+          ? '这门课的每一条结论都有出处。下表按主题列出全部参考文献，并反向索引到引用它的小节 —— 你可以从任何一条理论出发，找到它在案例里的落点。'
+          : 'Every claim in this course has a source. The table below lists all references by theme and indexes back to the sections citing them — start from any principle and find where it lands in the case study.'
+      }
+    </p>
+    <dl class="about-stats">
+      <div><dt>{locale === 'zh' ? '章节' : 'Chapters'}</dt><dd>{stats.lessons}</dd></div>
+      <div><dt>{locale === 'zh' ? '知识小节' : 'Sections'}</dt><dd>{stats.sections}</dd></div>
+      <div><dt>{locale === 'zh' ? '交互演示' : 'Live demos'}</dt><dd>{stats.demos}</dd></div>
+      <div><dt>{locale === 'zh' ? '参考文献' : 'References'}</dt><dd>{references.length}</dd></div>
+    </dl>
+    </div>
+    <HeroWaves size="sm" />
+  </header>
+
+  {
+    grouped.map((g, gi) => (
+      <section class="center about-section">
+        <header class="ed">
+          <span class="ed__mark" aria-hidden="true">{String(gi + 1).padStart(2, '0')}<i /></span>
+          <div class="ed__title">
+            <p class="ed__kicker">{locale === 'zh' ? '理论来源' : 'Where it comes from'}</p>
+            <h2>{g.label}</h2>
+          </div>
+          <p class="ed__note">
+            {locale === 'zh'
+              ? `${g.items.length} 条文献，被 ${g.items.reduce((n, r) => n + sectionsCitingReference(r.id).length, 0)} 个小节引用。`
+              : `${g.items.length} references, cited by ${g.items.reduce((n, r) => n + sectionsCitingReference(r.id).length, 0)} sections.`}
+          </p>
+        </header>
+        <ul class="ref-list">
+          {g.items.map((r) => {
+            const cited = sectionsCitingReference(r.id);
+            return (
+              <li class="ref">
+                <span class="ref__year">{r.year}</span>
+                <p class="ref__title" style="padding-inline-end: var(--space-7)">
+                  <strong>{r.authors}</strong> ·{' '}
+                  {r.url ? (
+                    <a href={r.url} target="_blank" rel="noopener noreferrer">
+                      {r.title[locale]} ↗
+                    </a>
+                  ) : (
+                    r.title[locale]
+                  )}
+                </p>
+                <p class="ref__source">{r.source[locale]}</p>
+                <p class="ref__use">{r.usedFor[locale]}</p>
+                <p class="ref__cited">
+                  <span>{t('about.citedIn')}</span>
+                  {cited.map(({ lesson, section }) => (
+                    <a href={`${path(base, locale, 'lessons', lesson.slug)}#${anchorOf(section)}`}>§{section.id}</a>
+                  ))}
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+    ))
+  }
+
+  <section class="center about-section">
+    <h2>{locale === 'zh' ? '关于这个网站' : 'About this site'}</h2>
+    <div class="prose">
+      <p>
+        {
+          locale === 'zh'
+            ? '本站用 Astro + Svelte 构建，纯静态输出。所有图表由 D3.js 按模块引入绘制，p5.js 只负责生成式装饰层（并且在 prefers-reduced-motion 下完全不加载）。内容以带类型的结构化模块承载，中英文在同一处相邻书写，由 Zod 在构建期校验 —— 任何一节缺少理论出处、缺少代码或缺少演示，构建都会直接失败。'
+            : 'This site is built with Astro and Svelte and ships as pure static files. Every chart is drawn with per-module D3.js imports; p5.js is confined to the generative decoration layer (and is not loaded at all under prefers-reduced-motion). Content lives in typed structured modules with Chinese and English written side by side, validated by Zod at build time — any section missing a theory citation, a code sample or a demo fails the build outright.'
+        }
+      </p>
+      <p>
+        {
+          locale === 'zh'
+            ? '本站遵守它所讲授的每一条规则：12 列网格、8pt 间距标尺、1.25 排版音阶、24px 基线节奏、逻辑属性、容器查询、零 order 重排。在任意页面按 G 可以把网格叠加上去自行验证，按 B 叠加基线。'
+            : 'The site obeys every rule it teaches: a twelve-column grid, an 8pt spacing scale, a 1.25 type scale, a 24px baseline rhythm, logical properties, container queries, and no `order` reshuffling anywhere. Press G on any page to overlay the grid and check for yourself; B adds the baseline.'
+        }
+      </p>
+      <p class="note">
+        {
+          locale === 'zh'
+            ? '案例中的 NeoCampus 数据为教学用途虚构，不代表任何真实院校的招生情况。'
+            : 'The NeoCampus data in the case study is fictional and intended for teaching only; it does not represent any real institution’s admissions.'
+        }
+      </p>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  /* 页头与章节页头同构：恒深色 + p5 丝带 + 底部水波纹。
+     全站三块「宣言区」（门户 Hero、章节页头、这里）用同一套语言，
+     读者一眼知道「这是一页的开头」。 */
+  .about-header {
+    position: relative;
+    isolation: isolate;
+    background: #0f172a;
+    color: #e2e8f0;
+    border-block-start: 3px solid var(--accent);
+  }
+  .about-header__inner {
+    position: relative;
+    z-index: var(--z-content);
+    padding-block: var(--space-8) clamp(var(--space-7), 6vw, var(--space-9));
+  }
+  .about-header h1 { color: #fff; }
+  .about-header__lead { color: rgb(226 232 240 / 0.82) !important; }
+  .about-header .about-stats { border-block-start-color: rgb(255 255 255 / 0.14); }
+  .about-header .about-stats dt { color: rgb(226 232 240 / 0.6); }
+  .about-header .about-stats dd { color: #fff; }
+  .about-header__lead {
+    margin-block-start: var(--space-4);
+    max-inline-size: var(--measure);
+    font-size: var(--step-1);
+    color: var(--ink-2);
+  }
+  .about-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-6);
+    margin-block-start: var(--space-6);
+    padding-block-start: var(--space-5);
+    border-block-start: var(--hairline) solid var(--line-1);
+  }
+  .about-stats dt {
+    font-size: var(--step--2);
+    color: var(--ink-3);
+  }
+  .about-stats dd {
+    margin: 0;
+    font-size: var(--step-2);
+    font-weight: 700;
+    color: var(--ink-1);
+    font-variant-numeric: tabular-nums;
+  }
+  .about-section {
+    padding-block: var(--space-6);
+    border-block-start: var(--hairline) solid var(--line-1);
+  }
+  .about-section > h2 {
+    font-size: var(--step-1);
+    margin-block-end: var(--space-4);
+  }
+  .ref-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: var(--space-3);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+  }
+  /* 文献卡：和门户章节卡同一套语言（细边、大圆角、浮起阴影、悬停抬升）。
+     上一版只是一个灰框 —— 二十条一模一样的灰框，眼睛没有任何落点。 */
+  .ref {
+    position: relative;
+    display: grid;
+    align-content: start;
+    background: var(--surface-1);
+    border: var(--hairline) solid var(--line-1);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    margin: 0;
+    box-shadow: var(--elevation-1);
+    transition:
+      translate var(--motion-base) var(--ease-out),
+      box-shadow var(--motion-base),
+      border-color var(--motion-base);
+  }
+  .ref:hover {
+    translate: 0 -2px;
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    box-shadow: var(--elevation-3);
+  }
+  /* 年份做成角标：二十条文献里，年代是最常用来定位的一维 */
+  .ref__year {
+    position: absolute;
+    inset-block-start: var(--space-4);
+    inset-inline-end: var(--space-4);
+    font-family: var(--font-mono);
+    font-size: var(--step--2);
+    font-weight: 700;
+    color: color-mix(in srgb, var(--accent) 55%, var(--ink-4));
+  }
+  .ref__title {
+    font-size: var(--step--1);
+    color: var(--ink-1);
+  }
+  .ref__source {
+    font-size: var(--step--2);
+    color: var(--ink-4);
+    margin-block-start: 2px;
+  }
+  .ref__use {
+    font-size: var(--step--2);
+    color: var(--ink-2);
+    margin-block-start: var(--space-2);
+  }
+  .ref__cited {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block-start: var(--space-3);
+    padding-block-start: var(--space-2);
+    border-block-start: var(--hairline) solid var(--line-1);
+    font-size: var(--step--2);
+    color: var(--ink-4);
+  }
+  .ref__cited a {
+    padding: 1px var(--space-2);
+    border-radius: var(--radius-pill);
+    background: var(--accent-wash);
+    color: var(--accent-ink);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    text-decoration: none;
+  }
+  .ref__cited a:hover { background: var(--accent-line); }
+</style>

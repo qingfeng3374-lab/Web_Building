@@ -1,0 +1,82 @@
+---
+import '@/styles/tokens.css';
+import '@/styles/base.css';
+import '@/styles/layout.css';
+import '@/styles/prose.css';
+import '@/styles/components.css';
+
+import TopBar from '@/components/chrome/TopBar.astro';
+import Footer from '@/components/chrome/Footer.astro';
+import GridOverlay from '@/components/chrome/GridOverlay.svelte';
+import { LOCALE_META, switchLocalePath, type Locale } from '@/i18n/locales';
+import { useUI } from '@/i18n/ui';
+
+interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** 当前章节序号，用于顶栏高亮；门户等页面传 0 */
+  currentLesson?: number;
+  /** 章节强调色变量名，如 '--ch1' */
+  accentVar?: string;
+}
+
+const { locale, title, description, currentLesson = 0, accentVar } = Astro.props;
+const t = useUI(locale);
+const base = import.meta.env.BASE_URL;
+const meta = LOCALE_META[locale];
+const here = Astro.url.pathname;
+const altPath = switchLocalePath(here, locale === 'zh' ? 'en' : 'zh', base);
+---
+
+<!doctype html>
+<html lang={meta.htmlLang} style={accentVar ? `--ch: var(${accentVar})` : undefined}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
+
+    {/* 中英互指，让搜索引擎知道这是同一内容的两个语言版本 */}
+    <link rel="alternate" hreflang={locale === 'zh' ? 'en' : 'zh'} href={altPath} />
+    <link rel="alternate" hreflang={meta.htmlLang} href={here} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="website" />
+
+    {/*
+      主题脚本必须内联且阻塞渲染：晚一帧就会出现「白闪」。
+      这是全站唯一一处刻意的同步脚本 —— 它换来的是零主题闪烁。
+    */}
+    <script is:inline>
+      (function () {
+        try {
+          var saved = localStorage.getItem('lc-theme');
+          var theme =
+            saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      })();
+    </script>
+  </head>
+
+  <body>
+    <a class="skip-link" href="#main">{t('nav.skip')}</a>
+
+    <TopBar locale={locale} currentLesson={currentLesson} />
+
+    <main id="main" tabindex="-1">
+      <slot />
+    </main>
+
+    <Footer locale={locale} />
+
+    {/* 元设计彩蛋：按 G 把 12 列网格与 24px 基线叠加到本页 */}
+    <GridOverlay client:idle locale={locale} />
+  </body>
+</html>
